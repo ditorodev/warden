@@ -5,21 +5,13 @@ import ignore, { type Ignore } from 'ignore';
 import { countPatchChunks } from '../types/index.js';
 import type { FileChange } from '../types/index.js';
 import { execGitNonInteractive } from '../utils/exec.js';
+import { isRepoRelativePath, normalizePath } from '../utils/path.js';
 
 export interface ExpandGlobOptions {
   /** Working directory for glob expansion (default: process.cwd()) */
   cwd?: string;
   /** Respect .gitignore files (default: true) */
   gitignore?: boolean;
-}
-
-/**
- * Normalize path separators to forward slashes for cross-platform consistency.
- * fast-glob always returns forward slashes, but Node.js path functions use
- * backslashes on Windows.
- */
-function normalizePath(path: string): string {
-  return path.replace(/\\/g, '/');
 }
 
 function hasGlobCharacters(pattern: string): boolean {
@@ -208,6 +200,9 @@ export async function expandFileGlobs(
   // Normalize paths to forward slashes for consistent matching
   const filteredFiles = files.filter((file) => {
     const relativePath = normalizePath(relative(gitRoot, file));
+    if (!isRepoRelativePath(relativePath)) {
+      return true;
+    }
     return !ig.ignores(relativePath);
   });
 
