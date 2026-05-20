@@ -1,4 +1,8 @@
 # Changelog
+## 0.33.0
+
+- No documented changes.
+
 ## 0.32.0
 
 ### Bug Fixes 🐛
