@@ -1,8 +1,16 @@
 name: Update Major Version Tag
 
+# Builds and commits dist/action onto the version tag, then updates the
+# matching major tag (v0 / v1 / ...). Triggers on either a published
+# GitHub release (upstream's release flow) or a pushed `v*` tag (used by
+# this fork, which doesn't run a release-create step). Either trigger
+# converges on the same tag name via GITHUB_REF_NAME.
 on:
   release:
     types: [published]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -10,10 +18,14 @@ permissions:
 jobs:
   update-tag:
     runs-on: ubuntu-latest
+    # Skip re-runs caused by this workflow force-pushing the same tag with
+    # the bundle commit on top. The commit subject is set by the
+    # "Commit bundle and update tags" step.
+    if: ${{ github.event_name == 'release' || !startsWith(github.event.head_commit.message, 'Build dist/action for ') }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || github.ref }}
           fetch-depth: 0
           fetch-tags: true
 
