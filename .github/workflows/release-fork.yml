@@ -1,0 +1,152 @@
+name: Release (Fork)
+
+# Fork-friendly release flow. Single self-contained job: validates the
+# requested version against package.json, builds the action bundle,
+# commits dist/action onto a release commit, tags vX.Y.Z and the
+# matching vN major tag, pushes both, and creates a GitHub release.
+#
+# Why one workflow instead of release.yml -> update-major-tag.yml:
+#
+#   GitHub does not trigger workflows from events created by
+#   GITHUB_TOKEN. A two-workflow split would need a GitHub App or PAT
+#   to bridge the trigger gap, which the fork would have to provision.
+#   Doing everything in one job sidesteps that requirement — every
+#   step here authenticates with the default GITHUB_TOKEN.
+#
+# Upstream's release.yml (uses craft + sentry-release-bot to publish to
+# @sentry/warden on npm) is intentionally not reused; it depends on
+# secrets that don't exist on the fork.
+#
+# Workflow is dispatch-only so cutting a release is always an explicit
+# choice. The matching update-major-tag.yml still exists for the case
+# where someone pushes a `v*` tag manually outside of this workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.33.2-cursor.1). Must match package.json."
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a pre-release"
+        required: false
+        type: boolean
+        default: true
+      draft:
+        description: "Create the GitHub release as a draft (skips publishing event)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate version input
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # Strip a leading `v` to be forgiving; we re-add it for the tag.
+          VERSION="${INPUT_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+            echo "::error::Version '$INPUT_VERSION' is not a valid semver (got '$VERSION')"
+            exit 1
+          fi
+
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "::error::package.json version is '$PKG_VERSION' but workflow input is '$VERSION'. Bump package.json on main first."
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG^{tag}" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists. Delete it or pick a new version."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >>"$GITHUB_ENV"
+          echo "TAG=$TAG" >>"$GITHUB_ENV"
+          echo "MAJOR=v${VERSION%%.*}" >>"$GITHUB_ENV"
+          echo "SRC_TAG=v${VERSION}-src" >>"$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and typecheck
+        run: |
+          pnpm lint
+          pnpm typecheck
+
+      - name: Build action bundle
+        run: pnpm build:action
+
+      - name: Commit bundle and tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Source tag preserves the pre-bundle SHA so reproducible
+          # rebuilds can checkout the exact source. Idempotent: skip if
+          # the source tag already points at HEAD.
+          SOURCE_SHA="$(git rev-parse HEAD)"
+          if git rev-parse "$SRC_TAG^{commit}" >/dev/null 2>&1; then
+            if [ "$(git rev-parse "$SRC_TAG^{commit}")" != "$SOURCE_SHA" ]; then
+              echo "::error::Source tag $SRC_TAG already points elsewhere"
+              exit 1
+            fi
+          else
+            git tag -a "$SRC_TAG" -m "Source for $TAG" "$SOURCE_SHA"
+          fi
+
+          # Force-add bundle (dist/ is gitignored on main).
+          git add -f dist/action/index.js dist/action/licenses.txt dist/action/package.json
+          git add -f dist/action/*.index.js dist/action/*.wasm 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "Bundle already up to date; tagging existing HEAD."
+          else
+            git commit -m "Build dist/action for $TAG"
+          fi
+
+          git tag -a "$TAG" -m "Release $TAG"
+          git tag -fa "$MAJOR" -m "Update $MAJOR to $TAG"
+
+          git push origin "$SRC_TAG" "$TAG"
+          git push -f origin "$MAJOR"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          ARGS=(release create "$TAG"
+            --title "$TAG"
+            --target "$TAG"
+            --generate-notes
+          )
+          if [ "$PRERELEASE" = "true" ]; then
+            ARGS+=(--prerelease)
+          fi
+          if [ "$DRAFT" = "true" ]; then
+            ARGS+=(--draft)
+          fi
+          gh "${ARGS[@]}"
