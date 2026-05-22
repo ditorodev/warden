@@ -27,7 +27,11 @@ function providerFromModel(model: string | undefined): string | undefined {
 
 /** Resolve the OpenTelemetry GenAI provider name from runtime and model selectors. */
 export function genAiProviderName(runtime: string | undefined, model: string | undefined): string {
-  return providerFromModel(model) ?? (runtime === 'pi' ? 'pi' : 'anthropic');
+  const fromModel = providerFromModel(model);
+  if (fromModel) return fromModel;
+  if (runtime === 'pi') return 'pi';
+  if (runtime === 'cursor') return 'cursor';
+  return 'anthropic';
 }
 
 /** Set GenAI token usage attributes expected by Sentry AI monitoring. */

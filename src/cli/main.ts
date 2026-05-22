@@ -58,6 +58,7 @@ import { runSetupApp } from './commands/setup-app.js';
 import { runSync } from './commands/sync.js';
 import { runRuns } from './commands/runs.js';
 import { runBuild, runImprove } from './commands/build.js';
+import { runAuth } from './commands/auth.js';
 import {
   generatedSkillDefinitionRootExists,
   resolveGeneratedSkillTarget,
@@ -1565,7 +1566,7 @@ async function runCommand(options: CLIOptions, reporter: Reporter): Promise<numb
 
 /** Parse CLI input, dispatch the selected command, and perform shutdown cleanup. */
 export async function main(): Promise<void> {
-  const { command, options, helpTarget, setupAppOptions, runsOptions } = parseCliArgs();
+  const { command, options, helpTarget, setupAppOptions, runsOptions, authOptions } = parseCliArgs();
 
   if (command === 'help') {
     showHelp(helpTarget);
@@ -1640,6 +1641,12 @@ export async function main(): Promise<void> {
           return runBuild(options, reporter, { abortController, interrupted });
         case 'improve':
           return runImprove(options, reporter, { abortController, interrupted });
+        case 'auth':
+          if (!authOptions) {
+            reporter.error('Missing auth options');
+            process.exit(1);
+          }
+          return runAuth(authOptions, reporter);
         default:
           return runCommand(options, reporter);
       }

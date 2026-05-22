@@ -33,6 +33,7 @@ import type { ToolConfig, ToolName } from '../../config/schema.js';
 import { Sentry } from '../../sentry.js';
 import type { UsageStats } from '../../types/index.js';
 import { bridgeWardenProviderApiKeyEnv } from '../../utils/index.js';
+import { seedOpenAICodexFromEnv } from '../../utils/codex-auth.js';
 import { extractJson } from '../haiku.js';
 import { isAuthenticationErrorMessage, sanitizeErrorMessage } from '../errors.js';
 import {
@@ -125,12 +126,18 @@ function legacyApiKeyProvider(model: string | undefined): string | undefined {
   return selector.provider === 'anthropic' ? 'anthropic' : undefined;
 }
 
-function createAuthStorage(model: string | undefined, legacyAnthropicApiKey: string | undefined): AuthStorage {
+async function createAuthStorage(
+  model: string | undefined,
+  legacyAnthropicApiKey: string | undefined,
+): Promise<AuthStorage> {
   const authStorage = AuthStorage.create();
   const provider = legacyApiKeyProvider(model);
   if (legacyAnthropicApiKey && provider) {
     authStorage.setRuntimeApiKey(provider, legacyAnthropicApiKey);
   }
+  // Inject a ChatGPT Codex OAuth access token from CI env (no-op locally
+  // when the env var is unset). See utils/codex-auth.ts for the contract.
+  await seedOpenAICodexFromEnv(authStorage);
   return authStorage;
 }
 
@@ -316,7 +323,7 @@ async function promptWithTimeout(
 async function runPiPrompt(options: PiPromptOptions): Promise<PiPromptResult> {
   const warnings: string[] = [];
   bridgeWardenProviderApiKeyEnv();
-  const authStorage = createAuthStorage(options.model, options.legacyAnthropicApiKey);
+  const authStorage = await createAuthStorage(options.model, options.legacyAnthropicApiKey);
   const modelRegistry = ModelRegistry.create(authStorage);
   const model = resolvePiModel(options.model, modelRegistry);
   const settingsManager = buildSettingsManager(options.timeout, options.maxRetries);

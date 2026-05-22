@@ -1,13 +1,16 @@
 import { claudeRuntime } from './claude.js';
+import { cursorRuntime } from './cursor.js';
 import { piRuntime } from './pi.js';
 import type { Runtime, RuntimeName } from './types.js';
 
 const RUNTIMES: Partial<Record<RuntimeName, Runtime>> = {
   claude: claudeRuntime,
+  cursor: cursorRuntime,
   pi: piRuntime,
 };
 
 export { claudeRuntime } from './claude.js';
+export { cursorRuntime } from './cursor.js';
 export { piRuntime } from './pi.js';
 export type {
   AuxiliaryRunRequest,
