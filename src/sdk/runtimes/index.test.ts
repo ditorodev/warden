@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   claudeRuntime,
+  cursorRuntime,
   getRuntime,
   getRuntimeProviderOptions,
   piRuntime,
@@ -23,6 +24,16 @@ describe('runtimes', () => {
 
     expect(runtime).toBe(claudeRuntime);
     expect(runtime.name).toBe('claude');
+    expect(runtime.runSkill).toBeTypeOf('function');
+    expect(runtime.runAuxiliary).toBeTypeOf('function');
+    expect(runtime.runSynthesis).toBeTypeOf('function');
+  });
+
+  it('exposes Cursor as an opt-in runtime provider', () => {
+    const runtime = getRuntime('cursor');
+
+    expect(runtime).toBe(cursorRuntime);
+    expect(runtime.name).toBe('cursor');
     expect(runtime.runSkill).toBeTypeOf('function');
     expect(runtime.runAuxiliary).toBeTypeOf('function');
     expect(runtime.runSynthesis).toBeTypeOf('function');

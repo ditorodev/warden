@@ -16,7 +16,7 @@ import { z } from 'zod';
 import type { ToolConfig } from '../../config/schema.js';
 import type { UsageStats } from '../../types/index.js';
 
-export const RuntimeNameSchema = z.enum(['claude', 'pi']);
+export const RuntimeNameSchema = z.enum(['claude', 'pi', 'cursor']);
 export type RuntimeName = z.infer<typeof RuntimeNameSchema>;
 
 export type SkillRunStatus =
