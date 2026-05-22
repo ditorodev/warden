@@ -132,14 +132,28 @@ interface CursorSdkModule {
 let cursorSdkPromise: Promise<CursorSdkModule> | undefined;
 
 /**
- * Lazy import of @cursor/sdk. The SDK eagerly loads a native sqlite3
- * binding at module-load time, which breaks environments where the
- * binding hasn't been built (CI sandboxes, ncc bundles, tests). Deferring
- * the import to first call keeps `runtimes/index.ts` cheap.
+ * Lazy import of @cursor/sdk. Two reasons this can't be a static import:
+ *
+ * 1. The SDK eagerly loads a native sqlite3 binding at module-load time,
+ *    which breaks environments where the binding hasn't been built (CI
+ *    sandboxes, ncc bundles, tests).
+ * 2. The SDK's type declarations re-export from `@anysphere/*` paths that
+ *    don't exist on npm — bundlers (ncc, webpack) trace them and fail.
+ *
+ * We wrap the specifier through a `Function`-constructed callable so static
+ * bundlers can't see the import target. At runtime the package is resolved
+ * normally from node_modules. The CLI installs `@cursor/sdk` as a real
+ * dependency; the GitHub Action bundle does NOT include it, so the Cursor
+ * runtime is CLI/SDK-consumer-only — picking `runtime = "cursor"` from
+ * inside the action bundle will throw a clear "cannot find module" error.
  */
+const opaqueImport = Function('s', 'return import(s)') as (
+  specifier: string,
+) => Promise<unknown>;
+
 async function loadCursorSdk(): Promise<CursorSdkModule> {
   if (!cursorSdkPromise) {
-    cursorSdkPromise = import('@cursor/sdk') as unknown as Promise<CursorSdkModule>;
+    cursorSdkPromise = opaqueImport('@cursor/sdk') as Promise<CursorSdkModule>;
   }
   return cursorSdkPromise;
 }
