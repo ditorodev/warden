@@ -133,8 +133,9 @@ jobs:
       # Set to use a ChatGPT subscription instead of an OpenAI API key.
       # Run \`warden auth login openai-codex\` locally to obtain the refresh token.
       WARDEN_OPENAI_CODEX_REFRESH_TOKEN: \${{ secrets.WARDEN_OPENAI_CODEX_REFRESH_TOKEN }}
-      # Set to use a Cursor subscription (Composer 2.5 etc.) via the @cursor/sdk runtime.
-      # Generate the API key in the Cursor Dashboard or Team settings.
+      # Set to use a Cursor subscription. Composer 2.5 et al. plug into the
+      # Pi runtime via the optional pi-cursor-sdk dependency. Select with
+      # \`runtime = "pi"\` + \`model = "cursor/composer-2.5"\` in warden.toml.
       WARDEN_CURSOR_API_KEY: \${{ secrets.WARDEN_CURSOR_API_KEY }}
     steps:
       - uses: actions/checkout@v4

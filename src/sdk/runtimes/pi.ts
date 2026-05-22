@@ -35,6 +35,10 @@ import type { UsageStats } from '../../types/index.js';
 import { bridgeWardenProviderApiKeyEnv } from '../../utils/index.js';
 import { seedOpenAICodexFromEnv } from '../../utils/codex-auth.js';
 import { extractJson } from '../haiku.js';
+import {
+  modelTargetsCursor,
+  registerCursorProvider,
+} from './pi-cursor-extension.js';
 import { isAuthenticationErrorMessage, sanitizeErrorMessage } from '../errors.js';
 import {
   genAiProviderName,
@@ -325,6 +329,13 @@ async function runPiPrompt(options: PiPromptOptions): Promise<PiPromptResult> {
   bridgeWardenProviderApiKeyEnv();
   const authStorage = await createAuthStorage(options.model, options.legacyAnthropicApiKey);
   const modelRegistry = ModelRegistry.create(authStorage);
+  // Register the cursor/* provider via pi-cursor-sdk before model lookup so
+  // selectors like `cursor/composer-2.5` resolve. See pi-cursor-extension.ts
+  // for why we drive the extension factory directly instead of through
+  // DefaultResourceLoader.
+  if (modelTargetsCursor(options.model)) {
+    await registerCursorProvider(modelRegistry);
+  }
   const model = resolvePiModel(options.model, modelRegistry);
   const settingsManager = buildSettingsManager(options.timeout, options.maxRetries);
   const agentDir = getAgentDir();
