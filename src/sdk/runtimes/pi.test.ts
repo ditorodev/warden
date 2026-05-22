@@ -22,6 +22,8 @@ const piMocks = vi.hoisted(() => {
   const registry = {
     find: vi.fn((_provider: string, _modelId: string) => model),
     getAll: vi.fn(() => [model]),
+    registerProvider: vi.fn(),
+    unregisterProvider: vi.fn(),
   };
   const session = {
     sessionId: 'pi-session-1',
@@ -434,5 +436,72 @@ describe('piRuntime structured calls', () => {
     if (!result.success) {
       expect(result.error).toContain('Validation failed');
     }
+  });
+});
+
+describe('piRuntime cursor model integration', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    piMocks.listeners = [];
+    piMocks.resourceLoaderOptions = [];
+    piMocks.customTools = [];
+    piMocks.session.prompt.mockImplementation(async () => emitSuccessfulRun());
+    piMocks.registry.find.mockReturnValue(piMocks.model);
+    piMocks.registry.getAll.mockReturnValue([piMocks.model]);
+    const { __setCursorExtensionFactoryForTests } = await import('./pi-cursor-extension.js');
+    __setCursorExtensionFactoryForTests(undefined);
+  });
+
+  it('registers the cursor provider via pi-cursor-sdk when the model targets cursor', async () => {
+    const factoryCalls: { method: string; args: unknown[] }[] = [];
+    const cursorFactory = vi.fn(async (pi: {
+      registerProvider: (name: string, config: unknown) => void;
+    }) => {
+      pi.registerProvider('cursor', { api: 'cursor-sdk', models: [] });
+      factoryCalls.push({ method: 'registerProvider', args: ['cursor'] });
+    });
+    const { __setCursorExtensionFactoryForTests } = await import('./pi-cursor-extension.js');
+    const restore = __setCursorExtensionFactoryForTests(cursorFactory as never);
+
+    try {
+      await piRuntime.runSkill({
+        systemPrompt: 'system',
+        userPrompt: 'user',
+        repoPath: '/repo',
+        skillName: 'cursor-test',
+        options: { model: 'cursor/composer-2.5', maxTurns: 3 },
+      });
+    } finally {
+      restore();
+    }
+
+    expect(cursorFactory).toHaveBeenCalledTimes(1);
+    expect(piMocks.registry.registerProvider).toHaveBeenCalledWith(
+      'cursor',
+      expect.objectContaining({ api: 'cursor-sdk' }),
+    );
+    // Model resolution must happen AFTER the provider is registered.
+    expect(piMocks.registry.find).toHaveBeenCalledWith('cursor', 'composer-2.5');
+  });
+
+  it('does not load pi-cursor-sdk for non-cursor models', async () => {
+    const cursorFactory = vi.fn();
+    const { __setCursorExtensionFactoryForTests } = await import('./pi-cursor-extension.js');
+    const restore = __setCursorExtensionFactoryForTests(cursorFactory as never);
+
+    try {
+      await piRuntime.runSkill({
+        systemPrompt: 'system',
+        userPrompt: 'user',
+        repoPath: '/repo',
+        skillName: 'non-cursor-test',
+        options: { model: 'anthropic/claude-test', maxTurns: 3 },
+      });
+    } finally {
+      restore();
+    }
+
+    expect(cursorFactory).not.toHaveBeenCalled();
+    expect(piMocks.registry.registerProvider).not.toHaveBeenCalled();
   });
 });
