@@ -73,12 +73,20 @@ export interface RunsOptions {
   all?: boolean;
 }
 
+export type AuthSubcommand = 'login' | 'logout' | 'status';
+
+export interface AuthOptions {
+  subcommand: AuthSubcommand;
+  provider?: string;
+}
+
 export interface ParsedArgs {
-  command: 'run' | 'help' | 'init' | 'add' | 'version' | 'setup-app' | 'sync' | 'runs' | 'build' | 'improve';
+  command: 'run' | 'help' | 'init' | 'add' | 'version' | 'setup-app' | 'sync' | 'runs' | 'build' | 'improve' | 'auth';
   options: CLIOptions;
   helpTarget?: HelpTarget;
   setupAppOptions?: SetupAppOptions;
   runsOptions?: RunsOptions;
+  authOptions?: AuthOptions;
 }
 
 export function showVersion(): void {
@@ -139,6 +147,8 @@ function resolveHelpTarget(tokens: string[], values: ParsedOptionValues): HelpTa
       if (values['all']) return 'runs:list';
       if (subcommand) return 'runs:show';
       return 'runs';
+    case 'auth':
+      return 'auth';
     case 'help':
     case 'version':
       return undefined;
@@ -458,6 +468,27 @@ export function parseCliArgs(argv: string[] = process.argv.slice(2)): ParsedArgs
         timeout: parseSetupAppNumber(typeof values.timeout === 'string' ? values.timeout : undefined, '--timeout', 300),
         name: typeof values.name === 'string' ? values.name : undefined,
         open: !values['no-open'],
+      },
+    };
+  }
+
+  if (command === 'auth') {
+    const subcommandArg = rest[0];
+    let subcommand: AuthSubcommand;
+    let providerArg: string | undefined;
+    if (subcommandArg === 'login' || subcommandArg === 'logout' || subcommandArg === 'status') {
+      subcommand = subcommandArg;
+      providerArg = rest[1];
+    } else {
+      subcommand = 'status';
+      providerArg = subcommandArg;
+    }
+    return {
+      command: 'auth',
+      options: parseCliOptions(sharedOptions(values, verboseCount)),
+      authOptions: {
+        subcommand,
+        provider: providerArg,
       },
     };
   }

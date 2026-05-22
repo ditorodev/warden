@@ -575,6 +575,24 @@ describe('parseCliArgs', () => {
     expect(result.runsOptions!.subcommand).toBe('show');
     expect(result.runsOptions!.files).toEqual(['deadbeef']);
   });
+
+  it('parses auth login with a provider argument', () => {
+    const result = parseCliArgs(['auth', 'login', 'openai-codex']);
+    expect(result.command).toBe('auth');
+    expect(result.authOptions).toEqual({ subcommand: 'login', provider: 'openai-codex' });
+  });
+
+  it('parses auth status with no provider as a status-all request', () => {
+    const result = parseCliArgs(['auth', 'status']);
+    expect(result.command).toBe('auth');
+    expect(result.authOptions).toEqual({ subcommand: 'status', provider: undefined });
+  });
+
+  it('parses bare `warden auth <provider>` as a status request for that provider', () => {
+    const result = parseCliArgs(['auth', 'openai-codex']);
+    expect(result.command).toBe('auth');
+    expect(result.authOptions).toEqual({ subcommand: 'status', provider: 'openai-codex' });
+  });
 });
 
 describe('CLIOptionsSchema', () => {

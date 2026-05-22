@@ -46,7 +46,8 @@ export type HelpTarget =
   | 'runs:list'
   | 'runs:show'
   | 'runs:follow'
-  | 'runs:gc';
+  | 'runs:gc'
+  | 'auth';
 
 interface HelpOptionSpec {
   label: string;
@@ -423,12 +424,39 @@ const HELP_COMMANDS: Record<HelpTarget, HelpCommandSpec> = {
       'warden runs gc',
     ],
   },
+  auth: {
+    summary: 'Log in to OAuth-based model providers',
+    description:
+      'Authenticate with ChatGPT (openai-codex), Claude Pro/Max (anthropic), or GitHub Copilot. '
+      + 'Credentials persist to ~/.pi/agent/auth.json. After login, the refresh token is printed so '
+      + 'you can store it as a GitHub Actions secret for CI runs.',
+    usage: [
+      'warden auth login <provider>',
+      'warden auth logout <provider>',
+      'warden auth status [provider]',
+    ],
+    arguments: [
+      { label: 'provider', description: 'openai-codex, anthropic, or github-copilot' },
+    ],
+    subcommands: [
+      { label: 'login <provider>', summary: 'Run OAuth flow and store credentials' },
+      { label: 'logout <provider>', summary: 'Remove stored credentials for a provider' },
+      { label: 'status [provider]', summary: 'Show what is configured (default: all providers)' },
+    ],
+    options: ['cwd', ...SHARED_COMMAND_OPTIONS],
+    examples: [
+      'warden auth login openai-codex',
+      'warden auth status',
+      'warden auth logout anthropic',
+    ],
+  },
 };
 
 const ROOT_COMMANDS: { label: string; summary: string }[] = [
   { label: 'run [targets...]', summary: 'Analyze files, git refs, or current branch changes' },
   { label: 'init', summary: 'Initialize Warden configuration' },
   { label: 'add [skill]', summary: 'Add a skill trigger to warden.toml' },
+  { label: 'auth', summary: 'Log in to OAuth-based model providers' },
   { label: 'sync [remote]', summary: 'Update cached remote skills to latest' },
   { label: 'build <skill>', summary: 'Build a repo-local generated skill' },
   { label: 'runs', summary: 'Inspect saved sessions and run logs' },

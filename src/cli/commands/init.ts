@@ -130,6 +130,9 @@ jobs:
       WARDEN_SENTRY_DSN: \${{ secrets.WARDEN_SENTRY_DSN }}
       WARDEN_OPENAI_API_KEY: \${{ secrets.WARDEN_OPENAI_API_KEY }}
       WARDEN_ANTHROPIC_API_KEY: \${{ secrets.WARDEN_ANTHROPIC_API_KEY }}
+      # Set to use a ChatGPT subscription instead of an OpenAI API key.
+      # Run \`warden auth login openai-codex\` locally to obtain the refresh token.
+      WARDEN_OPENAI_CODEX_REFRESH_TOKEN: \${{ secrets.WARDEN_OPENAI_CODEX_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:

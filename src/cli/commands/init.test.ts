@@ -85,6 +85,7 @@ describe('init command', () => {
       expect(content).toContain('WARDEN_MODEL');
       expect(content).toContain('WARDEN_OPENAI_API_KEY');
       expect(content).toContain('WARDEN_ANTHROPIC_API_KEY');
+      expect(content).toContain('WARDEN_OPENAI_CODEX_REFRESH_TOKEN');
       expect(content).not.toContain('secrets.OPENAI_API_KEY');
       expect(content).not.toContain('env.ANTHROPIC_API_KEY');
       expect(content).not.toContain('anthropic-api-key');
